@@ -1,0 +1,163 @@
+version: '3.8'
+
+networks:
+  ptero_internal:
+    driver: bridge
+    internal: true 
+  ptero_public:
+    driver: bridge
+  wings0:
+    name: wings0
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+    driver_opts:
+      com.docker.network.bridge.name: wings0
+
+services:
+  # --- Database: MariaDB ---
+  database:
+    image: mariadb:10.11
+    container_name: ptero_db
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password --skip-ssl
+    volumes:
+      - /srv/pterodactyl/database:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      TZ: ${TZ}
+    networks:
+      - ptero_internal
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "--password=${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Cache & Queue: Redis ---
+  redis:
+    image: redis:7-alpine
+    container_name: ptero_redis
+    restart: unless-stopped
+    command: redis-server --requirepass "${REDIS_PASSWORD}"
+    environment:
+      TZ: ${TZ}
+    networks:
+      - ptero_internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Pterodactyl Panel ---
+  panel:
+    image: ghcr.io/pterodactyl/panel:latest
+    container_name: ptero_panel
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /srv/pterodactyl/var:/app/var
+      - /srv/pterodactyl/nginx:/etc/nginx/http.d
+      - /srv/pterodactyl/certs:/etc/letsencrypt
+      - /srv/pterodactyl/logs:/app/storage/logs
+    networks:
+      - ptero_internal
+      - ptero_public
+    environment:
+      &panel-env
+      APP_URL: ${APP_URL}
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_TIMEZONE: ${TZ}
+      APP_SERVICE_AUTHOR: ${ADMIN_EMAIL}
+      TRUSTED_PROXIES: "*"
+      DB_HOST: database
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      CACHE_DRIVER: redis
+      SESSION_DRIVER: redis
+      QUEUE_CONNECTION: redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      MAIL_DRIVER: smtp
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+
+  # --- Queue Worker ---
+  worker:
+    image: ghcr.io/pterodactyl/panel:latest
+    container_name: ptero_worker
+    command: php artisan queue:work --queue=high,standard,low --sleep=3 --tries=3
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - /srv/pterodactyl/var:/app/var
+      - /srv/pterodactyl/logs:/app/storage/logs
+    networks:
+      - ptero_internal
+    environment: *panel-env
+
+  # --- Cron Service ---
+  cron:
+    image: ghcr.io/pterodactyl/panel:latest
+    container_name: ptero_cron
+    # Perbaikan: Loop cron agar terus berjalan di background
+    command: sh -c "while [ true ]; do php /app/artisan schedule:run >> /dev/null 2>&1; sleep 60; done"
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - /srv/pterodactyl/var:/app/var
+      - /srv/pterodactyl/logs:/app/storage/logs
+    networks:
+      - ptero_internal
+    environment: *panel-env
+
+  # --- Pterodactyl Wings ---
+  wings:
+    image: ghcr.io/pterodactyl/wings:latest
+    container_name: ptero_wings
+    restart: always
+    privileged: true 
+    ports:
+      - "8080:8080"
+      - "2022:2022"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /etc/pterodactyl:/etc/pterodactyl
+      - /srv/daemon-data:/srv/daemon-data
+      - /var/lib/pterodactyl:/var/lib/pterodactyl
+      - /var/log/pterodactyl:/var/log/pterodactyl
+      - /tmp/pterodactyl:/tmp/pterodactyl
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    networks:
+      - wings0
+      - ptero_public
+    environment:
+      TZ: ${TZ}
+      WINGS_UID: 988
+      WINGS_GID: 988
+      WINGS_USERNAME: pterodactyl
