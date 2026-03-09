@@ -25,15 +25,15 @@ services:
     volumes:
       - /srv/pterodactyl/database:/var/lib/mysql
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${DB_DATABASE}
-      MYSQL_USER: ${DB_USERNAME}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-      TZ: ${TZ}
+      MYSQL_ROOT_PASSWORD: "GANTI_PASSWORD_ROOT"
+      MYSQL_DATABASE: panel
+      MYSQL_USER: pterodactyl
+      MYSQL_PASSWORD: "GANTI_PASSWORD_DATABASE"
+      TZ: Asia/Jakarta
     networks:
       - ptero_internal
     healthcheck:
-      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "--password=${DB_PASSWORD}"]
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "--password=GANTI_PASSWORD_DATABASE"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -43,13 +43,13 @@ services:
     image: redis:7-alpine
     container_name: ptero_redis
     restart: unless-stopped
-    command: redis-server --requirepass "${REDIS_PASSWORD}"
+    command: redis-server --requirepass "GANTI_PASSWORD_REDIS"
     environment:
-      TZ: ${TZ}
+      TZ: Asia/Jakarta
     networks:
       - ptero_internal
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "GANTI_PASSWORD_REDIS", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -76,27 +76,26 @@ services:
       - ptero_internal
       - ptero_public
     environment:
-      &panel-env
-      APP_URL: ${APP_URL}
+      APP_URL: "https://{CODESPACE_NAME}-80.app.github.dev"
       APP_ENV: production
       APP_DEBUG: "false"
-      APP_TIMEZONE: ${TZ}
-      APP_SERVICE_AUTHOR: ${ADMIN_EMAIL}
+      APP_TIMEZONE: Asia/Jakarta
+      APP_SERVICE_AUTHOR: "admin@example.com"
       TRUSTED_PROXIES: "*"
       DB_HOST: database
       DB_PORT: 3306
-      DB_DATABASE: ${DB_DATABASE}
-      DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_DATABASE: panel
+      DB_USERNAME: pterodactyl
+      DB_PASSWORD: "GANTI_PASSWORD_DATABASE"
       CACHE_DRIVER: redis
       SESSION_DRIVER: redis
       QUEUE_CONNECTION: redis
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_PASSWORD: "GANTI_PASSWORD_REDIS"
       MAIL_DRIVER: smtp
-      MAIL_HOST: ${MAIL_HOST}
-      MAIL_PORT: ${MAIL_PORT}
+      MAIL_HOST: "mail.example.com"
+      MAIL_PORT: 587
 
   # --- Queue Worker ---
   worker:
@@ -114,13 +113,23 @@ services:
       - /srv/pterodactyl/logs:/app/storage/logs
     networks:
       - ptero_internal
-    environment: *panel-env
+    environment:
+      APP_URL: "https://your-codespace-url.app.github.dev"
+      APP_ENV: production
+      APP_TIMEZONE: Asia/Jakarta
+      DB_HOST: database
+      DB_PORT: 3306
+      DB_DATABASE: panel
+      DB_USERNAME: pterodactyl
+      DB_PASSWORD: "GANTI_PASSWORD_DATABASE"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: "GANTI_PASSWORD_REDIS"
 
   # --- Cron Service ---
   cron:
     image: ghcr.io/pterodactyl/panel:latest
     container_name: ptero_cron
-    # Perbaikan: Loop cron agar terus berjalan di background
     command: sh -c "while [ true ]; do php /app/artisan schedule:run >> /dev/null 2>&1; sleep 60; done"
     restart: unless-stopped
     depends_on:
@@ -133,7 +142,18 @@ services:
       - /srv/pterodactyl/logs:/app/storage/logs
     networks:
       - ptero_internal
-    environment: *panel-env
+    environment:
+      APP_URL: "https://your-codespace-url.app.github.dev"
+      APP_ENV: production
+      APP_TIMEZONE: Asia/Jakarta
+      DB_HOST: database
+      DB_PORT: 3306
+      DB_DATABASE: panel
+      DB_USERNAME: pterodactyl
+      DB_PASSWORD: "GANTI_PASSWORD_DATABASE"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: "GANTI_PASSWORD_REDIS"
 
   # --- Pterodactyl Wings ---
   wings:
@@ -157,7 +177,7 @@ services:
       - wings0
       - ptero_public
     environment:
-      TZ: ${TZ}
+      TZ: Asia/Jakarta
       WINGS_UID: 988
       WINGS_GID: 988
       WINGS_USERNAME: pterodactyl
