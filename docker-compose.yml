@@ -76,7 +76,7 @@ services:
       - ptero_internal
       - ptero_public
     environment:
-      APP_URL: "https://{CODESPACE_NAME}-80.app.github.dev"
+      APP_URL: "https://${CODESPACE_NAME}-80.app.github.dev"
       APP_ENV: production
       APP_DEBUG: "false"
       APP_TIMEZONE: Asia/Jakarta
