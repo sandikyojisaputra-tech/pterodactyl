@@ -21,6 +21,7 @@ services:
     image: mariadb:10.11
     container_name: ptero_db
     restart: unless-stopped
+    # Menambahkan skip-ssl dan authentication plugin yang stabil
     command: --default-authentication-plugin=mysql_native_password --skip-ssl
     volumes:
       - /srv/pterodactyl/database:/var/lib/mysql
@@ -87,6 +88,8 @@ services:
       DB_DATABASE: panel
       DB_USERNAME: pterodactyl
       DB_PASSWORD: "GANTI_PASSWORD_DATABASE"
+      # Perbaikan Error SSL:
+      DB_COMMON_SSL: "false"
       CACHE_DRIVER: redis
       SESSION_DRIVER: redis
       QUEUE_CONNECTION: redis
@@ -114,7 +117,7 @@ services:
     networks:
       - ptero_internal
     environment:
-      APP_URL: "https://your-codespace-url.app.github.dev"
+      APP_URL: "https://${CODESPACE_NAME}-80.app.github.dev"
       APP_ENV: production
       APP_TIMEZONE: Asia/Jakarta
       DB_HOST: database
@@ -122,6 +125,7 @@ services:
       DB_DATABASE: panel
       DB_USERNAME: pterodactyl
       DB_PASSWORD: "GANTI_PASSWORD_DATABASE"
+      DB_COMMON_SSL: "false"
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: "GANTI_PASSWORD_REDIS"
@@ -143,7 +147,7 @@ services:
     networks:
       - ptero_internal
     environment:
-      APP_URL: "https://your-codespace-url.app.github.dev"
+      APP_URL: "https://${CODESPACE_NAME}-80.app.github.dev"
       APP_ENV: production
       APP_TIMEZONE: Asia/Jakarta
       DB_HOST: database
@@ -151,6 +155,7 @@ services:
       DB_DATABASE: panel
       DB_USERNAME: pterodactyl
       DB_PASSWORD: "GANTI_PASSWORD_DATABASE"
+      DB_COMMON_SSL: "false"
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: "GANTI_PASSWORD_REDIS"
